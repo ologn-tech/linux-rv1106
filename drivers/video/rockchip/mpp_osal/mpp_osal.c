@@ -5,8 +5,6 @@
  */
 #include "mpp_osal.h"
 #include <linux/platform_device.h>
-#include "base.h"
-#include "power/power.h"
 
 struct device_node *mpp_dev_of_node(struct device *dev)
 {
