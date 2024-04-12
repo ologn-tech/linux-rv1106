@@ -928,6 +928,7 @@ struct rkcif_device {
 	bool				use_hw_interlace;
 	bool				is_stop_skip;
 	bool				is_sensor_off;
+	bool				is_thunderboot_start;
 	int				rdbk_debug;
 	struct rkcif_sync_cfg		sync_cfg;
 	int				sditf_cnt;
