@@ -840,6 +840,10 @@ int rkisp_fh_open(struct file *filp)
 
 	if (!stream->ispdev->is_probe_end)
 		return -EINVAL;
+	ret = rkisp_cond_poll_timeout(!stream->ispdev->is_thunderboot,
+				      2000, 5000 * USEC_PER_MSEC);
+	if (ret)
+		return ret;
 
 	ret = v4l2_fh_open(filp);
 	if (!ret) {
