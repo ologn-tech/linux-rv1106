@@ -286,7 +286,7 @@ static const struct ov6211_mode supported_modes[] = {
 		.exp_def = 0x00f8,
 		.hts_def = 0x03a1,
 		.vts_def = 0x021a,
-		.bus_fmt = MEDIA_BUS_FMT_SBGGR10_1X10,
+		.bus_fmt  = MEDIA_BUS_FMT_Y8_1X8,
 		.reg_list = ov6211_400x400_120fps_regs,
 		.hdr_mode = NO_HDR,
 		.vc[PAD0] = V4L2_MBUS_CSI2_CHANNEL_0,
@@ -421,7 +421,7 @@ static int ov6211_set_fmt(struct v4l2_subdev *sd,
 	mutex_lock(&ov6211->mutex);
 
 	mode = ov6211_find_best_fit(fmt);
-	fmt->format.code = mode->bus_fmt;
+	fmt->format.code = MEDIA_BUS_FMT_Y8_1X8;
 	fmt->format.width = mode->width;
 	fmt->format.height = mode->height;
 	fmt->format.field = V4L2_FIELD_NONE;
@@ -467,7 +467,7 @@ static int ov6211_get_fmt(struct v4l2_subdev *sd,
 	} else {
 		fmt->format.width = mode->width;
 		fmt->format.height = mode->height;
-		fmt->format.code = mode->bus_fmt;
+		fmt->format.code = MEDIA_BUS_FMT_Y8_1X8;
 		fmt->format.field = V4L2_FIELD_NONE;
 		/* format info: width/height/data type/virctual channel */
 		if (fmt->pad < PAD_MAX && mode->hdr_mode != NO_HDR)
