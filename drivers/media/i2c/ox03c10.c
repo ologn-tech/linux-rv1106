@@ -233,7 +233,7 @@ static const struct regval ox03c10_global_regs[] = {
 };
 
 static const struct regval ox03c10_1920x1280_2_lanes_regs[] = {
-	{ 0x3012, 0x21 }, // SC_PHY_CTRL = 4 lane MIPI
+	{ 0x3012, 0x21 }, // SC_PHY_CTRL = 2 lane MIPI
 
 	{ REG_NULL, 0x00 },
 };
