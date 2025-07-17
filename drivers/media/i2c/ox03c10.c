@@ -35,9 +35,9 @@
 
 #define OX03C10_LANES			2
 #define OX03C10_BITS_PER_SAMPLE		12
-#define OX03C10_LINK_FREQ_240		240000000
+#define OX03C10_LINK_FREQ_270M		270000000
 
-#define PIXEL_RATE_WITH_240M_12BIT	(OX03C10_LINK_FREQ_240 * 2 * \
+#define PIXEL_RATE_WITH_270M_12BIT	(OX03C10_LINK_FREQ_270M * 2 * \
 					OX03C10_LANES / OX03C10_BITS_PER_SAMPLE)
 
 #define CHIP_ID				0x580343
@@ -257,7 +257,7 @@ static const struct ox03c10_mode supported_modes[] = {
 };
 
 static const s64 link_freq_menu_items[] = {
-	OX03C10_LINK_FREQ_240
+	OX03C10_LINK_FREQ_270M
 };
 
 static const char * const ox03c10_test_pattern_menu[] = {
@@ -1033,7 +1033,7 @@ static int ox03c10_initialize_controls(struct ox03c10 *ox03c10)
 		ctrl->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 
 	v4l2_ctrl_new_std(handler, NULL, V4L2_CID_PIXEL_RATE,
-			  0, PIXEL_RATE_WITH_240M_12BIT, 1, PIXEL_RATE_WITH_240M_12BIT);
+			  0, PIXEL_RATE_WITH_270M_12BIT, 1, PIXEL_RATE_WITH_270M_12BIT);
 
 	h_blank = mode->hts_def - mode->width;
 	ox03c10->hblank = v4l2_ctrl_new_std(handler, NULL, V4L2_CID_HBLANK,
