@@ -61,11 +61,10 @@
 
 #define OX03C10_REG_VTS			0x380e
 
-#define OX03C10_MIRROR_REG		0x3821
-#define OX03C10_FLIP_REG		0x3820
+#define OX03C10_MIRROR_FLIP_REG		0x3820
 
-#define OX03C10_FETCH_MIRROR(VAL, ENABLE)	(ENABLE ? VAL | 0x01 : VAL & 0xf9)
-#define OX03C10_FETCH_FLIP(VAL, ENABLE)		(ENABLE ? VAL | 0x01 : VAL & 0x9f)
+#define OX03C10_FETCH_MIRROR(VAL, ENABLE)	(ENABLE ? VAL | 0x20 : VAL & 0xdf)
+#define OX03C10_FETCH_FLIP(VAL, ENABLE)		(ENABLE ? VAL | 0x04 : VAL & 0xfb)
 
 #define REG_DELAY			0xFFFE
 #define REG_NULL			0xFFFF
@@ -208,6 +207,10 @@ static const struct regval ox03c10_global_regs[] = {
 	{ 0x37f9, 0x01 },
 	{ 0x37fa, 0x00 },
 	{ 0x37fb, 0x19 },
+
+	// Mirror
+	{ 0x6a09, 0x01 },
+	{ 0x3820, 0x20 },
 
 	// Format
 	{ 0x4319, 0x03 }, // spd dcg
@@ -955,16 +958,16 @@ static int ox03c10_set_ctrl(struct v4l2_ctrl *ctrl)
 				       ctrl->val + ox03c10->cur_mode->height);
 		break;
 	case V4L2_CID_HFLIP:
-		ret = ox03c10_read_reg(ox03c10->client, OX03C10_MIRROR_REG,
+		ret = ox03c10_read_reg(ox03c10->client, OX03C10_MIRROR_FLIP_REG,
 				       OX03C10_REG_VALUE_08BIT, &val);
-		ret |= ox03c10_write_reg(ox03c10->client, OX03C10_MIRROR_REG,
+		ret |= ox03c10_write_reg(ox03c10->client, OX03C10_MIRROR_FLIP_REG,
 					 OX03C10_REG_VALUE_08BIT,
 					 OX03C10_FETCH_MIRROR(val, ctrl->val));
 		break;
 	case V4L2_CID_VFLIP:
-		ret = ox03c10_read_reg(ox03c10->client, OX03C10_FLIP_REG,
+		ret = ox03c10_read_reg(ox03c10->client, OX03C10_MIRROR_FLIP_REG,
 				       OX03C10_REG_VALUE_08BIT, &val);
-		ret |= ox03c10_write_reg(ox03c10->client, OX03C10_FLIP_REG,
+		ret |= ox03c10_write_reg(ox03c10->client, OX03C10_MIRROR_FLIP_REG,
 					 OX03C10_REG_VALUE_08BIT,
 					 OX03C10_FETCH_FLIP(val, ctrl->val));
 		break;
