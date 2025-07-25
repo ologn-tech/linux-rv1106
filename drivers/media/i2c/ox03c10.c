@@ -241,9 +241,9 @@ static const struct ox03c10_mode supported_modes[] = {
 			.numerator = 10000,
 			.denominator = 300000,
 		},
-		.exp_def = 0x00f8,
-		.hts_def = 0x0420,
-		.vts_def = 0x069e,
+		.exp_def = 248,
+		.hts_def = 2186,
+		.vts_def = 1372,
 		.bus_fmt = MEDIA_BUS_FMT_SBGGR12_1X12,
 		.reg_list = ox03c10_1920x1280_2_lanes_regs,
 		.hdr_mode = NO_HDR,
@@ -373,9 +373,11 @@ static int ox03c10_set_fmt(struct v4l2_subdev *sd,
 	mutex_lock(&ox03c10->mutex);
 
 	mode = ox03c10_find_best_fit(fmt);
-	fmt->format.code = mode->bus_fmt;
 	fmt->format.width = mode->width;
 	fmt->format.height = mode->height;
+	fmt->format.code = mode->bus_fmt;
+	fmt->format.colorspace = V4L2_COLORSPACE_RAW;
+	fmt->format.ycbcr_enc = V4L2_YCBCR_ENC_601;
 	fmt->format.field = V4L2_FIELD_NONE;
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 #ifdef CONFIG_VIDEO_V4L2_SUBDEV_API
