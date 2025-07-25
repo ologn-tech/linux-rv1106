@@ -59,10 +59,6 @@
 #define ANALOG_GAIN_STEP		1
 #define ANALOG_GAIN_DEFAULT		0x20
 
-#define OX03C10_REG_TEST_PATTERN		0x5e00
-#define	OX03C10_TEST_PATTERN_ENABLE	0x80
-#define	OX03C10_TEST_PATTERN_DISABLE	0x0
-
 #define OX03C10_REG_VTS			0x380e
 
 #define OX03C10_MIRROR_REG		0x3821
@@ -126,7 +122,6 @@ struct ox03c10 {
 	struct v4l2_ctrl	*digi_gain;
 	struct v4l2_ctrl	*hblank;
 	struct v4l2_ctrl	*vblank;
-	struct v4l2_ctrl	*test_pattern;
 	struct mutex		mutex;
 	bool			streaming;
 	bool			power_on;
@@ -258,14 +253,6 @@ static const struct ox03c10_mode supported_modes[] = {
 
 static const s64 link_freq_menu_items[] = {
 	OX03C10_LINK_FREQ_270M
-};
-
-static const char * const ox03c10_test_pattern_menu[] = {
-	"Disabled",
-	"Vertical Color Bar Type 1",
-	"Vertical Color Bar Type 2",
-	"Vertical Color Bar Type 3",
-	"Vertical Color Bar Type 4"
 };
 
 /* Write registers up to 4 at a time */
@@ -474,19 +461,6 @@ static int ox03c10_enum_frame_sizes(struct v4l2_subdev *sd,
 	fse->min_height = supported_modes[fse->index].height;
 
 	return 0;
-}
-
-static int ox03c10_enable_test_pattern(struct ox03c10 *ox03c10, u32 pattern)
-{
-	u32 val;
-
-	if (pattern)
-		val = (pattern - 1) | OX03C10_TEST_PATTERN_ENABLE;
-	else
-		val = OX03C10_TEST_PATTERN_DISABLE;
-
-	return ox03c10_write_reg(ox03c10->client, OX03C10_REG_TEST_PATTERN,
-				OX03C10_REG_VALUE_08BIT, val);
 }
 
 static int ox03c10_g_frame_interval(struct v4l2_subdev *sd,
@@ -978,9 +952,6 @@ static int ox03c10_set_ctrl(struct v4l2_ctrl *ctrl)
 				       OX03C10_REG_VALUE_16BIT,
 				       ctrl->val + ox03c10->cur_mode->height);
 		break;
-	case V4L2_CID_TEST_PATTERN:
-		ret = ox03c10_enable_test_pattern(ox03c10, ctrl->val);
-		break;
 	case V4L2_CID_HFLIP:
 		ret = ox03c10_read_reg(ox03c10->client, OX03C10_MIRROR_REG,
 				       OX03C10_REG_VALUE_08BIT, &val);
@@ -995,7 +966,6 @@ static int ox03c10_set_ctrl(struct v4l2_ctrl *ctrl)
 					 OX03C10_REG_VALUE_08BIT,
 					 OX03C10_FETCH_FLIP(val, ctrl->val));
 		break;
-
 	default:
 		dev_warn(&client->dev, "%s Unhandled id:0x%x, val:0x%x\n",
 			 __func__, ctrl->id, ctrl->val);
@@ -1055,16 +1025,6 @@ static int ox03c10_initialize_controls(struct ox03c10 *ox03c10)
 				V4L2_CID_ANALOGUE_GAIN, ANALOG_GAIN_MIN,
 				ANALOG_GAIN_MAX, ANALOG_GAIN_STEP,
 				ANALOG_GAIN_DEFAULT);
-
-	ox03c10->test_pattern = v4l2_ctrl_new_std_menu_items(handler,
-							    &ox03c10_ctrl_ops,
-					V4L2_CID_TEST_PATTERN,
-					ARRAY_SIZE(ox03c10_test_pattern_menu) - 1,
-					0, 0, ox03c10_test_pattern_menu);
-	v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops,
-				V4L2_CID_HFLIP, 0, 1, 1, 0);
-	v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops,
-				V4L2_CID_VFLIP, 0, 1, 1, 0);
 	if (handler->error) {
 		ret = handler->error;
 		dev_err(&ox03c10->client->dev,
