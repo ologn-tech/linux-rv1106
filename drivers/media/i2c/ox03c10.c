@@ -27,10 +27,6 @@
 
 #define DRIVER_VERSION			KERNEL_VERSION(0, 0x01, 0x01)
 
-#ifndef V4L2_CID_DIGITAL_GAIN
-#define V4L2_CID_DIGITAL_GAIN		V4L2_CID_GAIN
-#endif
-
 #define OX03C10_XVCLK_FREQ		24000000
 
 #define OX03C10_LANES			2
@@ -47,17 +43,18 @@
 #define OX03C10_MODE_SW_STANDBY		0x0
 #define OX03C10_MODE_STREAMING		BIT(0)
 
-#define OX03C10_REG_EXPOSURE		0x3500
+#define OX03C10_REG_EXPOSURE		0x3501
 #define OX03C10_EXPOSURE_MIN		4
 #define OX03C10_EXPOSURE_STEP		0xf
 #define OX03C10_VTS_MAX			0xffff
 
-#define OX03C10_REG_ANALOG_GAIN		0x350a
-#define ANALOG_GAIN_MASK		0x3ff
-#define ANALOG_GAIN_MIN			0x10
-#define ANALOG_GAIN_MAX			0x3e0
-#define ANALOG_GAIN_STEP		1
-#define ANALOG_GAIN_DEFAULT		0x20
+#define OX03C10_REG_AGAIN		0x3508
+#define OX03C10_REG_DGAIN		0x350a
+
+#define OX03C10_GAIN_MIN		0x10
+#define OX03C10_GAIN_MAX		0xF7C
+#define OX03C10_GAIN_STEP		1
+#define OX03C10_GAIN_DEFAULT		0x20
 
 #define OX03C10_REG_VTS			0x380e
 
@@ -117,8 +114,6 @@ struct ox03c10 {
 	struct media_pad	pad;
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct v4l2_ctrl	*exposure;
-	struct v4l2_ctrl	*anal_gain;
-	struct v4l2_ctrl	*digi_gain;
 	struct v4l2_ctrl	*hblank;
 	struct v4l2_ctrl	*vblank;
 	struct mutex		mutex;
@@ -923,6 +918,7 @@ static int ox03c10_set_ctrl(struct v4l2_ctrl *ctrl)
 	struct i2c_client *client = ox03c10->client;
 	s64 max;
 	int ret = 0;
+	u32 again, dgain;
 	u32 val = 0;
 
 	/* Propagate change of current control to all related controls */
@@ -942,14 +938,27 @@ static int ox03c10_set_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_EXPOSURE:
-		/* 4 least significant bits of expsoure are fractional part */
 		ret = ox03c10_write_reg(ox03c10->client, OX03C10_REG_EXPOSURE,
-				       OX03C10_REG_VALUE_24BIT, ctrl->val << 4);
+					OX03C10_REG_VALUE_16BIT,
+					ctrl->val);
 		break;
-	case V4L2_CID_ANALOGUE_GAIN:
-		ret = ox03c10_write_reg(ox03c10->client, OX03C10_REG_ANALOG_GAIN,
-				       OX03C10_REG_VALUE_16BIT,
-				       ctrl->val & ANALOG_GAIN_MASK);
+	case V4L2_CID_GAIN:
+		if (ctrl->val > 248) {
+			dgain = ctrl->val * 1024 / 248;
+			again = 248;
+		} else {
+			dgain = 1024;
+			again = ctrl->val;
+		}
+		ret = ox03c10_write_reg(ox03c10->client, OX03C10_REG_AGAIN,
+					OX03C10_REG_VALUE_16BIT,
+					(again >> 4 & 0x0f) << 8 |
+					(again & 0x0f) << 4);
+		ret |= ox03c10_write_reg(ox03c10->client, OX03C10_REG_DGAIN,
+					 OX03C10_REG_VALUE_24BIT,
+					 (dgain >> 10 & 0x0f) << 16 |
+					 (dgain >> 2 & 0xff) << 8 |
+					 (dgain & 0x03) << 6);
 		break;
 	case V4L2_CID_VBLANK:
 		ret = ox03c10_write_reg(ox03c10->client, OX03C10_REG_VTS,
@@ -1020,15 +1029,16 @@ static int ox03c10_initialize_controls(struct ox03c10 *ox03c10)
 					    OX03C10_VTS_MAX - mode->height,
 					    1, vblank_def);
 	ox03c10->cur_fps = mode->max_fps;
+
 	exposure_max = mode->vts_def - 20;
 	ox03c10->exposure = v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops,
 					      V4L2_CID_EXPOSURE, OX03C10_EXPOSURE_MIN,
 					      exposure_max, OX03C10_EXPOSURE_STEP,
 					      mode->exp_def);
-	ox03c10->anal_gain = v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops,
-				V4L2_CID_ANALOGUE_GAIN, ANALOG_GAIN_MIN,
-				ANALOG_GAIN_MAX, ANALOG_GAIN_STEP,
-				ANALOG_GAIN_DEFAULT);
+
+	v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops, V4L2_CID_GAIN,
+			  OX03C10_GAIN_MIN, OX03C10_GAIN_MAX,
+			  OX03C10_GAIN_STEP, OX03C10_GAIN_DEFAULT);
 
 	v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops,
 			  V4L2_CID_HFLIP, 0, 1, 1, 0);
