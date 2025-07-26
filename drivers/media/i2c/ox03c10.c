@@ -63,7 +63,7 @@
 
 #define OX03C10_MIRROR_FLIP_REG		0x3820
 
-#define OX03C10_FETCH_MIRROR(VAL, ENABLE)	(ENABLE ? VAL | 0x20 : VAL & 0xdf)
+#define OX03C10_FETCH_MIRROR(VAL, ENABLE)	(ENABLE ? VAL & 0xdf : VAL | 0x20)
 #define OX03C10_FETCH_FLIP(VAL, ENABLE)		(ENABLE ? VAL | 0x04 : VAL & 0xfb)
 
 #define REG_DELAY			0xFFFE
@@ -209,7 +209,6 @@ static const struct regval ox03c10_global_regs[] = {
 	{ 0x37fb, 0x19 },
 
 	// Mirror
-	{ 0x6a09, 0x01 },
 	{ 0x3820, 0x20 },
 
 	// Format
@@ -1030,6 +1029,13 @@ static int ox03c10_initialize_controls(struct ox03c10 *ox03c10)
 				V4L2_CID_ANALOGUE_GAIN, ANALOG_GAIN_MIN,
 				ANALOG_GAIN_MAX, ANALOG_GAIN_STEP,
 				ANALOG_GAIN_DEFAULT);
+
+	v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops,
+			  V4L2_CID_HFLIP, 0, 1, 1, 0);
+
+	v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops,
+			  V4L2_CID_VFLIP, 0, 1, 1, 0);
+
 	if (handler->error) {
 		ret = handler->error;
 		dev_err(&ox03c10->client->dev,
