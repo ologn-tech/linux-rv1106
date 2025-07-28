@@ -36,43 +36,45 @@
 #define PIXEL_RATE_WITH_270M_12BIT	(OX03C10_LINK_FREQ_270M * 2 * \
 					OX03C10_LANES / OX03C10_BITS_PER_SAMPLE)
 
-#define CHIP_ID				0x580343
+#define OX03C10_CHIP_ID			0x580343
 #define OX03C10_REG_CHIP_ID		0x300a
+
+#define OX03C10_VTS_MAX			0xffff
+
+#define OX03C10_REG_EXP_LONG_H		0x3501
+
+#define OX03C10_REG_AGAIN_LONG_H	0x3508
+#define OX03C10_REG_DGAIN_LONG_H	0x350a
 
 #define OX03C10_REG_CTRL_MODE		0x0100
 #define OX03C10_MODE_SW_STANDBY		0x0
 #define OX03C10_MODE_STREAMING		BIT(0)
 
-#define OX03C10_REG_EXPOSURE		0x3501
-#define OX03C10_EXPOSURE_MIN		4
-#define OX03C10_EXPOSURE_STEP		0xf
-#define OX03C10_VTS_MAX			0xffff
-
-#define OX03C10_REG_AGAIN		0x3508
-#define OX03C10_REG_DGAIN		0x350a
-
-#define OX03C10_GAIN_MIN		0x10
-#define OX03C10_GAIN_MAX		0xF7C
+#define OX03C10_GAIN_MIN		0x0080
+#define OX03C10_GAIN_MAX		0x7820
 #define OX03C10_GAIN_STEP		1
-#define OX03C10_GAIN_DEFAULT		0x20
+#define OX03C10_GAIN_DEFAULT	0x0080
 
 #define OX03C10_REG_VTS			0x380e
 
-#define OX03C10_MIRROR_FLIP_REG		0x3820
+#define OX03C10_EXPOSURE_MIN		2
+#define OX03C10_EXPOSURE_STEP		1
 
-#define OX03C10_FETCH_MIRROR(VAL, ENABLE)	(ENABLE ? VAL & 0xdf : VAL | 0x20)
-#define OX03C10_FETCH_FLIP(VAL, ENABLE)		(ENABLE ? VAL | 0x04 : VAL & 0xfb)
-
-#define REG_DELAY			0xFFFE
-#define REG_NULL			0xFFFF
+#define OX03C10_FLIP_REG		0x3820
+#define MIRROR_BIT_MASK			BIT(5)
+#define FLIP_BIT_MASK			BIT(2)
 
 #define OX03C10_REG_VALUE_08BIT		1
 #define OX03C10_REG_VALUE_16BIT		2
 #define OX03C10_REG_VALUE_24BIT		3
 
+#define OX03C10_NAME			"ox03c10"
+
 #define OF_CAMERA_PINCTRL_STATE_DEFAULT	"rockchip,camera_default"
 #define OF_CAMERA_PINCTRL_STATE_SLEEP	"rockchip,camera_sleep"
-#define OX03C10_NAME			"ox03c10"
+
+#define REG_DELAY			0xFFFE
+#define REG_NULL			0xFFFF
 
 static const char * const ox03c10_supply_names[] = {
 	"avdd",		/* Analog power */
@@ -125,7 +127,6 @@ struct ox03c10 {
 	const char		*module_facing;
 	const char		*module_name;
 	const char		*len_name;
-	u32			cur_vts;
 };
 
 #define to_ox03c10(sd) container_of(sd, struct ox03c10, subdev)
@@ -238,9 +239,9 @@ static const struct ox03c10_mode supported_modes[] = {
 			.numerator = 10000,
 			.denominator = 300000,
 		},
-		.exp_def = 248,
-		.hts_def = 2186,
-		.vts_def = 1372,
+		.exp_def = 256,
+		.hts_def = 2140,
+		.vts_def = 1574,
 		.bus_fmt = MEDIA_BUS_FMT_SBGGR12_1X12,
 		.reg_list = ox03c10_1920x1280_2_lanes_regs,
 		.hdr_mode = NO_HDR,
@@ -253,8 +254,8 @@ static const s64 link_freq_menu_items[] = {
 };
 
 /* Write registers up to 4 at a time */
-static int ox03c10_write_reg(struct i2c_client *client, u16 reg,
-			    u32 len, u32 val)
+static int ox03c10_write_reg(struct i2c_client *client, u16 reg, u32 len,
+			     u32 val)
 {
 	u32 buf_i, val_i;
 	u8 buf[6];
@@ -288,9 +289,10 @@ static int ox03c10_write_array(struct i2c_client *client,
 
 	for (i = 0; ret == 0 && regs[i].addr != REG_NULL; i++) {
 		if (regs[i].addr == REG_DELAY) {
-        		usleep_range(regs[i].val * 1000, regs[i].val * 1000 + 1000);
-            		continue;
-        	}
+			usleep_range(regs[i].val * 1000,
+				     regs[i].val * 1000 + 1000);
+			continue;
+		}
 		ret = ox03c10_write_reg(client, regs[i].addr,
 					OX03C10_REG_VALUE_08BIT, regs[i].val);
 	}
@@ -298,8 +300,8 @@ static int ox03c10_write_array(struct i2c_client *client,
 }
 
 /* Read registers up to 4 at a time */
-static int ox03c10_read_reg(struct i2c_client *client, u16 reg, unsigned int len,
-			    u32 *val)
+static int ox03c10_read_reg(struct i2c_client *client, u16 reg,
+			    unsigned int len, u32 *val)
 {
 	struct i2c_msg msgs[2];
 	u8 *data_be_p;
@@ -386,12 +388,12 @@ static int ox03c10_set_fmt(struct v4l2_subdev *sd,
 	} else {
 		ox03c10->cur_mode = mode;
 		h_blank = mode->hts_def - mode->width;
-		__v4l2_ctrl_modify_range(ox03c10->hblank, h_blank,
-					 h_blank, 1, h_blank);
+		__v4l2_ctrl_modify_range(ox03c10->hblank, h_blank, h_blank, 1,
+					 h_blank);
 		vblank_def = mode->vts_def - mode->height;
 		__v4l2_ctrl_modify_range(ox03c10->vblank, vblank_def,
-					 OX03C10_VTS_MAX - mode->height,
-					 1, vblank_def);
+					 OX03C10_VTS_MAX - mode->height, 1,
+					 vblank_def);
 		ox03c10->cur_fps = mode->max_fps;
 	}
 
@@ -454,8 +456,8 @@ static int ox03c10_enum_frame_sizes(struct v4l2_subdev *sd,
 	if (fse->code != supported_modes[0].bus_fmt)
 		return -EINVAL;
 
-	fse->min_width  = supported_modes[fse->index].width;
-	fse->max_width  = supported_modes[fse->index].width;
+	fse->min_width = supported_modes[fse->index].width;
+	fse->max_width = supported_modes[fse->index].width;
 	fse->max_height = supported_modes[fse->index].height;
 	fse->min_height = supported_modes[fse->index].height;
 
@@ -476,15 +478,13 @@ static int ox03c10_g_frame_interval(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int ox03c10_g_mbus_config(struct v4l2_subdev *sd,
-				unsigned int pad_id,
-				struct v4l2_mbus_config *config)
+static int ox03c10_g_mbus_config(struct v4l2_subdev *sd, unsigned int pad_id,
+				 struct v4l2_mbus_config *config)
 {
 	struct ox03c10 *ox03c10 = to_ox03c10(sd);
 	const struct ox03c10_mode *mode = ox03c10->cur_mode;
-	u32 val = 1 << (OX03C10_LANES - 1) |
-		V4L2_MBUS_CSI2_CHANNEL_0 |
-		V4L2_MBUS_CSI2_CONTINUOUS_CLOCK;
+	u32 val = 1 << (OX03C10_LANES - 1) | V4L2_MBUS_CSI2_CHANNEL_0 |
+		  V4L2_MBUS_CSI2_CONTINUOUS_CLOCK;
 
 	if (mode->hdr_mode != NO_HDR)
 		val |= V4L2_MBUS_CSI2_CHANNEL_1;
@@ -542,11 +542,15 @@ static long ox03c10_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 				hdr->hdr_mode, w, h);
 			ret = -EINVAL;
 		} else {
-			w = ox03c10->cur_mode->hts_def - ox03c10->cur_mode->width;
-			h = ox03c10->cur_mode->vts_def - ox03c10->cur_mode->height;
+			w = ox03c10->cur_mode->hts_def -
+			    ox03c10->cur_mode->width;
+			h = ox03c10->cur_mode->vts_def -
+			    ox03c10->cur_mode->height;
 			__v4l2_ctrl_modify_range(ox03c10->hblank, w, w, 1, w);
-			__v4l2_ctrl_modify_range(ox03c10->vblank, h,
-						 OX03C10_VTS_MAX - ox03c10->cur_mode->height, 1, h);
+			__v4l2_ctrl_modify_range(
+				ox03c10->vblank, h,
+				OX03C10_VTS_MAX - ox03c10->cur_mode->height, 1,
+				h);
 		}
 		break;
 	case PREISP_CMD_SET_HDRAE_EXP:
@@ -556,11 +560,15 @@ static long ox03c10_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		stream = *((u32 *)arg);
 
 		if (stream)
-			ret = ox03c10_write_reg(ox03c10->client, OX03C10_REG_CTRL_MODE,
-				 OX03C10_REG_VALUE_08BIT, OX03C10_MODE_STREAMING);
+			ret = ox03c10_write_reg(ox03c10->client,
+						OX03C10_REG_CTRL_MODE,
+						OX03C10_REG_VALUE_08BIT,
+						OX03C10_MODE_STREAMING);
 		else
-			ret = ox03c10_write_reg(ox03c10->client, OX03C10_REG_CTRL_MODE,
-				 OX03C10_REG_VALUE_08BIT, OX03C10_MODE_SW_STANDBY);
+			ret = ox03c10_write_reg(ox03c10->client,
+						OX03C10_REG_CTRL_MODE,
+						OX03C10_REG_VALUE_08BIT,
+						OX03C10_MODE_SW_STANDBY);
 		break;
 	default:
 		ret = -ENOIOCTLCMD;
@@ -571,8 +579,8 @@ static long ox03c10_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 }
 
 #ifdef CONFIG_COMPAT
-static long ox03c10_compat_ioctl32(struct v4l2_subdev *sd,
-				   unsigned int cmd, unsigned long arg)
+static long ox03c10_compat_ioctl32(struct v4l2_subdev *sd, unsigned int cmd,
+				   unsigned long arg)
 {
 	void __user *up = compat_ptr(arg);
 	struct rkmodule_inf *inf;
@@ -668,13 +676,15 @@ static int __ox03c10_start_stream(struct ox03c10 *ox03c10)
 		return ret;
 
 	return ox03c10_write_reg(ox03c10->client, OX03C10_REG_CTRL_MODE,
-				 OX03C10_REG_VALUE_08BIT, OX03C10_MODE_STREAMING);
+				 OX03C10_REG_VALUE_08BIT,
+				 OX03C10_MODE_STREAMING);
 }
 
 static int __ox03c10_stop_stream(struct ox03c10 *ox03c10)
 {
 	return ox03c10_write_reg(ox03c10->client, OX03C10_REG_CTRL_MODE,
-				 OX03C10_REG_VALUE_08BIT, OX03C10_MODE_SW_STANDBY);
+				 OX03C10_REG_VALUE_08BIT,
+				 OX03C10_MODE_SW_STANDBY);
 }
 
 static int ox03c10_s_stream(struct v4l2_subdev *sd, int on)
@@ -840,7 +850,7 @@ static int ox03c10_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct ox03c10 *ox03c10 = to_ox03c10(sd);
 	struct v4l2_mbus_framefmt *try_fmt =
-				v4l2_subdev_get_try_format(sd, fh->pad, 0);
+		v4l2_subdev_get_try_format(sd, fh->pad, 0);
 	const struct ox03c10_mode *def_mode = &supported_modes[0];
 
 	mutex_lock(&ox03c10->mutex);
@@ -857,9 +867,10 @@ static int ox03c10_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 }
 #endif
 
-static int ox03c10_enum_frame_interval(struct v4l2_subdev *sd,
-				       struct v4l2_subdev_pad_config *cfg,
-				       struct v4l2_subdev_frame_interval_enum *fie)
+static int
+ox03c10_enum_frame_interval(struct v4l2_subdev *sd,
+			    struct v4l2_subdev_pad_config *cfg,
+			    struct v4l2_subdev_frame_interval_enum *fie)
 {
 	if (fie->index >= ARRAY_SIZE(supported_modes))
 		return -EINVAL;
@@ -873,8 +884,7 @@ static int ox03c10_enum_frame_interval(struct v4l2_subdev *sd,
 }
 
 static const struct dev_pm_ops ox03c10_pm_ops = {
-	SET_RUNTIME_PM_OPS(ox03c10_runtime_suspend,
-			   ox03c10_runtime_resume, NULL)
+	SET_RUNTIME_PM_OPS(ox03c10_runtime_suspend, ox03c10_runtime_resume, NULL)
 };
 
 #ifdef CONFIG_VIDEO_V4L2_SUBDEV_API
@@ -906,26 +916,25 @@ static const struct v4l2_subdev_pad_ops ox03c10_pad_ops = {
 };
 
 static const struct v4l2_subdev_ops ox03c10_subdev_ops = {
-	.core	= &ox03c10_core_ops,
-	.video	= &ox03c10_video_ops,
-	.pad	= &ox03c10_pad_ops,
+	.core = &ox03c10_core_ops,
+	.video = &ox03c10_video_ops,
+	.pad = &ox03c10_pad_ops,
 };
 
 static int ox03c10_set_ctrl(struct v4l2_ctrl *ctrl)
 {
-	struct ox03c10 *ox03c10 = container_of(ctrl->handler,
-					       struct ox03c10, ctrl_handler);
+	struct ox03c10 *ox03c10 =
+		container_of(ctrl->handler, struct ox03c10, ctrl_handler);
 	struct i2c_client *client = ox03c10->client;
 	s64 max;
 	int ret = 0;
-	u32 again, dgain;
-	u32 val = 0;
+	u32 again = 0, dgain = 0, flip = 0;
 
 	/* Propagate change of current control to all related controls */
 	switch (ctrl->id) {
 	case V4L2_CID_VBLANK:
 		/* Update max exposure while meeting expected vblanking */
-		max = ox03c10->cur_mode->height + ctrl->val - 20;
+		max = ox03c10->cur_mode->height + ctrl->val - 8;
 		__v4l2_ctrl_modify_range(ox03c10->exposure,
 					 ox03c10->exposure->minimum, max,
 					 ox03c10->exposure->step,
@@ -938,46 +947,54 @@ static int ox03c10_set_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_EXPOSURE:
-		ret = ox03c10_write_reg(ox03c10->client, OX03C10_REG_EXPOSURE,
-					OX03C10_REG_VALUE_16BIT,
-					ctrl->val);
+		ret = ox03c10_write_reg(ox03c10->client, OX03C10_REG_EXP_LONG_H,
+					OX03C10_REG_VALUE_16BIT, ctrl->val);
+		dev_dbg(&client->dev, "set exposure 0x%x\n", ctrl->val);
 		break;
 	case V4L2_CID_ANALOGUE_GAIN:
-		if (ctrl->val > 248) {
-			dgain = ctrl->val * 1024 / 248;
-			again = 248;
+		if (ctrl->val > 1984) {
+			dgain = ctrl->val * 1024 / 1984;
+			again = 1984;
 		} else {
 			dgain = 1024;
 			again = ctrl->val;
 		}
-		ret = ox03c10_write_reg(ox03c10->client, OX03C10_REG_AGAIN,
+		ret = ox03c10_write_reg(ox03c10->client,
+					OX03C10_REG_AGAIN_LONG_H,
 					OX03C10_REG_VALUE_16BIT,
-					(again >> 4 & 0x0f) << 8 |
-					(again & 0x0f) << 4);
-		ret |= ox03c10_write_reg(ox03c10->client, OX03C10_REG_DGAIN,
-					 OX03C10_REG_VALUE_24BIT,
-					 (dgain >> 10 & 0x0f) << 16 |
-					 (dgain >> 2 & 0xff) << 8 |
-					 (dgain & 0x03) << 6);
+					again & 0x1fff);
+		ret |= ox03c10_write_reg(ox03c10->client,
+					 OX03C10_REG_DGAIN_LONG_H,
+					 OX03C10_REG_VALUE_16BIT,
+					 dgain & 0x3fff);
+		dev_dbg(&client->dev, "set analog gain 0x%x\n", ctrl->val);
 		break;
 	case V4L2_CID_VBLANK:
 		ret = ox03c10_write_reg(ox03c10->client, OX03C10_REG_VTS,
-				       OX03C10_REG_VALUE_16BIT,
-				       ctrl->val + ox03c10->cur_mode->height);
+					OX03C10_REG_VALUE_16BIT,
+					ctrl->val + ox03c10->cur_mode->height);
+		dev_dbg(&client->dev, "set vblank 0x%x\n", ctrl->val);
 		break;
 	case V4L2_CID_HFLIP:
-		ret = ox03c10_read_reg(ox03c10->client, OX03C10_MIRROR_FLIP_REG,
-				       OX03C10_REG_VALUE_08BIT, &val);
-		ret |= ox03c10_write_reg(ox03c10->client, OX03C10_MIRROR_FLIP_REG,
-					 OX03C10_REG_VALUE_08BIT,
-					 OX03C10_FETCH_MIRROR(val, ctrl->val));
+		ret = ox03c10_read_reg(ox03c10->client, OX03C10_FLIP_REG,
+				       OX03C10_REG_VALUE_08BIT, &flip);
+		if (ctrl->val)
+			flip &= ~MIRROR_BIT_MASK;
+		else
+			flip |= MIRROR_BIT_MASK;
+		ret |= ox03c10_write_reg(ox03c10->client, OX03C10_FLIP_REG,
+					 OX03C10_REG_VALUE_08BIT, flip);
 		break;
 	case V4L2_CID_VFLIP:
-		ret = ox03c10_read_reg(ox03c10->client, OX03C10_MIRROR_FLIP_REG,
-				       OX03C10_REG_VALUE_08BIT, &val);
-		ret |= ox03c10_write_reg(ox03c10->client, OX03C10_MIRROR_FLIP_REG,
-					 OX03C10_REG_VALUE_08BIT,
-					 OX03C10_FETCH_FLIP(val, ctrl->val));
+		ret = ox03c10_read_reg(ox03c10->client, OX03C10_FLIP_REG,
+				       OX03C10_REG_VALUE_08BIT, &flip);
+		if (ctrl->val) 
+			flip |= FLIP_BIT_MASK;
+		else
+			flip &= ~FLIP_BIT_MASK;
+
+		ret |= ox03c10_write_reg(ox03c10->client, OX03C10_FLIP_REG,
+					 OX03C10_REG_VALUE_08BIT, flip);
 		break;
 	default:
 		dev_warn(&client->dev, "%s Unhandled id:0x%x, val:0x%x\n",
@@ -1010,13 +1027,14 @@ static int ox03c10_initialize_controls(struct ox03c10 *ox03c10)
 		return ret;
 	handler->lock = &ox03c10->mutex;
 
-	ctrl = v4l2_ctrl_new_int_menu(handler, NULL, V4L2_CID_LINK_FREQ,
-				      0, 0, link_freq_menu_items);
+	ctrl = v4l2_ctrl_new_int_menu(handler, NULL, V4L2_CID_LINK_FREQ, 0, 0,
+				      link_freq_menu_items);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 
-	v4l2_ctrl_new_std(handler, NULL, V4L2_CID_PIXEL_RATE,
-			  0, PIXEL_RATE_WITH_270M_12BIT, 1, PIXEL_RATE_WITH_270M_12BIT);
+	v4l2_ctrl_new_std(handler, NULL, V4L2_CID_PIXEL_RATE, 0,
+			  PIXEL_RATE_WITH_270M_12BIT, 1,
+			  PIXEL_RATE_WITH_270M_12BIT);
 
 	h_blank = mode->hts_def - mode->width;
 	ox03c10->hblank = v4l2_ctrl_new_std(handler, NULL, V4L2_CID_HBLANK,
@@ -1024,32 +1042,32 @@ static int ox03c10_initialize_controls(struct ox03c10 *ox03c10)
 	if (ox03c10->hblank)
 		ox03c10->hblank->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 	vblank_def = mode->vts_def - mode->height;
-	ox03c10->vblank = v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops,
-					    V4L2_CID_VBLANK, vblank_def,
-					    OX03C10_VTS_MAX - mode->height,
-					    1, vblank_def);
+	ox03c10->vblank =
+		v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops, V4L2_CID_VBLANK,
+				  vblank_def, OX03C10_VTS_MAX - mode->height, 1,
+				  vblank_def);
 	ox03c10->cur_fps = mode->max_fps;
 
-	exposure_max = mode->vts_def - 20;
-	ox03c10->exposure = v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops,
-					      V4L2_CID_EXPOSURE, OX03C10_EXPOSURE_MIN,
-					      exposure_max, OX03C10_EXPOSURE_STEP,
-					      mode->exp_def);
+	exposure_max = mode->vts_def - 8;
+	ox03c10->exposure =
+		v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops, V4L2_CID_EXPOSURE,
+				  OX03C10_EXPOSURE_MIN, exposure_max,
+				  OX03C10_EXPOSURE_STEP, mode->exp_def);
 
 	v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops, V4L2_CID_ANALOGUE_GAIN,
-			  OX03C10_GAIN_MIN, OX03C10_GAIN_MAX,
-			  OX03C10_GAIN_STEP, OX03C10_GAIN_DEFAULT);
+			  OX03C10_GAIN_MIN, OX03C10_GAIN_MAX, OX03C10_GAIN_STEP,
+			  OX03C10_GAIN_DEFAULT);
 
-	v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops,
-			  V4L2_CID_HFLIP, 0, 1, 1, 0);
+	v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops, V4L2_CID_HFLIP, 0, 1, 1,
+			  0);
 
-	v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops,
-			  V4L2_CID_VFLIP, 0, 1, 1, 0);
+	v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops, V4L2_CID_VFLIP, 0, 1, 1,
+			  0);
 
 	if (handler->error) {
 		ret = handler->error;
-		dev_err(&ox03c10->client->dev,
-			"Failed to init controls(%d)\n", ret);
+		dev_err(&ox03c10->client->dev, "Failed to init controls(%d)\n",
+			ret);
 		goto err_free_handler;
 	}
 
@@ -1072,7 +1090,7 @@ static int ox03c10_check_sensor_id(struct ox03c10 *ox03c10,
 
 	ret = ox03c10_read_reg(client, OX03C10_REG_CHIP_ID,
 			       OX03C10_REG_VALUE_24BIT, &id);
-	if (id != CHIP_ID) {
+	if (id != OX03C10_CHIP_ID) {
 		dev_err(dev, "Unexpected sensor id(%06x), ret(%d)\n", id, ret);
 		return -ENODEV;
 	}
@@ -1090,8 +1108,7 @@ static int ox03c10_configure_regulators(struct ox03c10 *ox03c10)
 		ox03c10->supplies[i].supply = ox03c10_supply_names[i];
 
 	return devm_regulator_bulk_get(&ox03c10->client->dev,
-				       OX03C10_NUM_SUPPLIES,
-				       ox03c10->supplies);
+				       OX03C10_NUM_SUPPLIES, ox03c10->supplies);
 }
 
 static int ox03c10_probe(struct i2c_client *client,
@@ -1104,10 +1121,8 @@ static int ox03c10_probe(struct i2c_client *client,
 	char facing[2];
 	int ret;
 
-	dev_info(dev, "driver version: %02x.%02x.%02x",
-		 DRIVER_VERSION >> 16,
-		 (DRIVER_VERSION & 0xff00) >> 8,
-		 DRIVER_VERSION & 0x00ff);
+	dev_info(dev, "driver version: %02x.%02x.%02x", DRIVER_VERSION >> 16,
+		 (DRIVER_VERSION & 0xff00) >> 8, DRIVER_VERSION & 0x00ff);
 
 	ox03c10 = devm_kzalloc(dev, sizeof(*ox03c10), GFP_KERNEL);
 	if (!ox03c10)
@@ -1141,15 +1156,13 @@ static int ox03c10_probe(struct i2c_client *client,
 
 	ox03c10->pinctrl = devm_pinctrl_get(dev);
 	if (!IS_ERR(ox03c10->pinctrl)) {
-		ox03c10->pins_default =
-			pinctrl_lookup_state(ox03c10->pinctrl,
-					     OF_CAMERA_PINCTRL_STATE_DEFAULT);
+		ox03c10->pins_default = pinctrl_lookup_state(
+			ox03c10->pinctrl, OF_CAMERA_PINCTRL_STATE_DEFAULT);
 		if (IS_ERR(ox03c10->pins_default))
 			dev_err(dev, "could not get default pinstate\n");
 
-		ox03c10->pins_sleep =
-			pinctrl_lookup_state(ox03c10->pinctrl,
-					     OF_CAMERA_PINCTRL_STATE_SLEEP);
+		ox03c10->pins_sleep = pinctrl_lookup_state(
+			ox03c10->pinctrl, OF_CAMERA_PINCTRL_STATE_SLEEP);
 		if (IS_ERR(ox03c10->pins_sleep))
 			dev_err(dev, "could not get sleep pinstate\n");
 	} else {
@@ -1180,8 +1193,7 @@ static int ox03c10_probe(struct i2c_client *client,
 
 #ifdef CONFIG_VIDEO_V4L2_SUBDEV_API
 	sd->internal_ops = &ox03c10_internal_ops;
-	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE |
-		     V4L2_SUBDEV_FL_HAS_EVENTS;
+	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS;
 #endif
 #if defined(CONFIG_MEDIA_CONTROLLER)
 	ox03c10->pad.flags = MEDIA_PAD_FL_SOURCE;
@@ -1198,8 +1210,8 @@ static int ox03c10_probe(struct i2c_client *client,
 		facing[0] = 'f';
 
 	snprintf(sd->name, sizeof(sd->name), "m%02d_%s_%s %s",
-		 ox03c10->module_index, facing,
-		 OX03C10_NAME, dev_name(sd->dev));
+		 ox03c10->module_index, facing, OX03C10_NAME,
+		 dev_name(sd->dev));
 	ret = v4l2_async_register_subdev_sensor_common(sd);
 	if (ret) {
 		dev_err(dev, "v4l2 async register subdev failed\n");
@@ -1256,7 +1268,7 @@ MODULE_DEVICE_TABLE(of, ox03c10_of_match);
 
 static const struct i2c_device_id ox03c10_match_id[] = {
 	{ "ovti,ox03c10", 0 },
-	{ },
+	{},
 };
 
 static struct i2c_driver ox03c10_i2c_driver = {
