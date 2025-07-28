@@ -27,13 +27,13 @@
 
 #define DRIVER_VERSION			KERNEL_VERSION(0, 0x01, 0x01)
 
-#define OX03C10_XVCLK_FREQ		24000000
+#define OX03C10_XVCLK_FREQ		27000000
 
 #define OX03C10_LANES			2
 #define OX03C10_BITS_PER_SAMPLE		12
-#define OX03C10_LINK_FREQ_270M		270000000
+#define OX03C10_LINK_FREQ_384M		384000000
 
-#define PIXEL_RATE_WITH_270M_12BIT	(OX03C10_LINK_FREQ_270M * 2 * \
+#define PIXEL_RATE_WITH_384M_12BIT	(OX03C10_LINK_FREQ_384M * 2 * \
 					OX03C10_LANES / OX03C10_BITS_PER_SAMPLE)
 
 #define OX03C10_CHIP_ID			0x580343
@@ -250,7 +250,7 @@ static const struct ox03c10_mode supported_modes[] = {
 };
 
 static const s64 link_freq_menu_items[] = {
-	OX03C10_LINK_FREQ_270M
+	OX03C10_LINK_FREQ_384M
 };
 
 /* Write registers up to 4 at a time */
@@ -1033,8 +1033,8 @@ static int ox03c10_initialize_controls(struct ox03c10 *ox03c10)
 		ctrl->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 
 	v4l2_ctrl_new_std(handler, NULL, V4L2_CID_PIXEL_RATE, 0,
-			  PIXEL_RATE_WITH_270M_12BIT, 1,
-			  PIXEL_RATE_WITH_270M_12BIT);
+			  PIXEL_RATE_WITH_384M_12BIT, 1,
+			  PIXEL_RATE_WITH_384M_12BIT);
 
 	h_blank = mode->hts_def - mode->width;
 	ox03c10->hblank = v4l2_ctrl_new_std(handler, NULL, V4L2_CID_HBLANK,
