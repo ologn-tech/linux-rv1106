@@ -942,7 +942,7 @@ static int ox03c10_set_ctrl(struct v4l2_ctrl *ctrl)
 					OX03C10_REG_VALUE_16BIT,
 					ctrl->val);
 		break;
-	case V4L2_CID_GAIN:
+	case V4L2_CID_ANALOGUE_GAIN:
 		if (ctrl->val > 248) {
 			dgain = ctrl->val * 1024 / 248;
 			again = 248;
@@ -1036,7 +1036,7 @@ static int ox03c10_initialize_controls(struct ox03c10 *ox03c10)
 					      exposure_max, OX03C10_EXPOSURE_STEP,
 					      mode->exp_def);
 
-	v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops, V4L2_CID_GAIN,
+	v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops, V4L2_CID_ANALOGUE_GAIN,
 			  OX03C10_GAIN_MIN, OX03C10_GAIN_MAX,
 			  OX03C10_GAIN_STEP, OX03C10_GAIN_DEFAULT);
 
