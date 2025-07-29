@@ -62,7 +62,6 @@
 
 #define OX03C10_FLIP_REG		0x3820
 #define MIRROR_BIT_MASK			BIT(5)
-#define FLIP_BIT_MASK			BIT(2)
 
 #define OX03C10_REG_VALUE_08BIT		1
 #define OX03C10_REG_VALUE_16BIT		2
@@ -991,17 +990,6 @@ static int ox03c10_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret |= ox03c10_write_reg(ox03c10->client, OX03C10_FLIP_REG,
 					 OX03C10_REG_VALUE_08BIT, flip);
 		break;
-	case V4L2_CID_VFLIP:
-		ret = ox03c10_read_reg(ox03c10->client, OX03C10_FLIP_REG,
-				       OX03C10_REG_VALUE_08BIT, &flip);
-		if (ctrl->val) 
-			flip |= FLIP_BIT_MASK;
-		else
-			flip &= ~FLIP_BIT_MASK;
-
-		ret |= ox03c10_write_reg(ox03c10->client, OX03C10_FLIP_REG,
-					 OX03C10_REG_VALUE_08BIT, flip);
-		break;
 	default:
 		dev_warn(&client->dev, "%s Unhandled id:0x%x, val:0x%x\n",
 			 __func__, ctrl->id, ctrl->val);
@@ -1065,9 +1053,6 @@ static int ox03c10_initialize_controls(struct ox03c10 *ox03c10)
 			  OX03C10_GAIN_DEFAULT);
 
 	v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops, V4L2_CID_HFLIP, 0, 1, 1,
-			  0);
-
-	v4l2_ctrl_new_std(handler, &ox03c10_ctrl_ops, V4L2_CID_VFLIP, 0, 1, 1,
 			  0);
 
 	if (handler->error) {
