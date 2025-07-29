@@ -222,6 +222,12 @@ static const struct regval ox03c10_global_regs[] = {
 	{ 0x4f03, 0x2c },
 	{ 0x4f04, 0xf8 },
 
+	// ISP
+	{ 0x5002, 0x7f }, // enable PWL1
+
+	// PWL
+	{ 0x5e00, 0x00 }, // 12-bit PWL0
+
 	{ REG_NULL, 0x00 },
 };
 
