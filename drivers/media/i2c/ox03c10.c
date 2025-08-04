@@ -85,7 +85,15 @@ static const char * const ox03c10_supply_names[] = {
 
 struct regval {
 	u16 addr;
-	u16 val;
+	u8 val;
+};
+
+struct other_data {
+	u32 width;
+	u32 height;
+	u32 bus_fmt;
+	u32 data_type;
+	u32 data_bit;
 };
 
 struct ox03c10_mode {
@@ -98,6 +106,7 @@ struct ox03c10_mode {
 	u32 exp_def;
 	const struct regval *reg_list;
 	u32 hdr_mode;
+	const struct other_data *spd;
 	u32 vc[PAD_MAX];
 };
 
@@ -207,8 +216,8 @@ static const struct regval ox03c10_global_regs[] = {
 	{ 0x3820, 0x20 },
 
 	// Format
-	{ 0x4319, 0x03 }, // spd dcg
-	{ 0x431f, 0x20 }, // enable PWL (pwl0_en), 12 bits
+	{ 0x4319, 0x0b }, // LFM SPD DCG
+	{ 0x431f, 0x20 }, // enable PWL0 (pwl0_en), 12 bits
 
 	// BLC
 	{ 0x4008, 0x02 },
@@ -236,6 +245,14 @@ static const struct regval ox03c10_1920x1280_2_lanes_regs[] = {
 	{ REG_NULL, 0x00 },
 };
 
+static const struct other_data ox03c10_spd = {
+	.width = 1920,
+	.height = 1280,
+	.bus_fmt = MEDIA_BUS_FMT_SPD_2X8,
+	.data_type = 0x2a,
+	.data_bit = 8,
+};
+
 static const struct ox03c10_mode supported_modes[] = {
 	{
 		.width = 1920,
@@ -250,6 +267,7 @@ static const struct ox03c10_mode supported_modes[] = {
 		.bus_fmt = MEDIA_BUS_FMT_SBGGR12_1X12,
 		.reg_list = ox03c10_1920x1280_2_lanes_regs,
 		.hdr_mode = NO_HDR,
+		.spd = &ox03c10_spd,
 		.vc[PAD0] = V4L2_MBUS_CSI2_CHANNEL_0,
 	}
 };
@@ -502,6 +520,30 @@ static int ox03c10_g_mbus_config(struct v4l2_subdev *sd, unsigned int pad_id,
 	return 0;
 }
 
+static int ox03c10_get_channel_info(struct ox03c10 *ox03c10,
+				    struct rkmodule_channel_info *ch_info)
+{
+	const struct ox03c10_mode *mode = ox03c10->cur_mode;
+
+	if (ch_info->index < PAD0 || ch_info->index >= PAD_MAX)
+		return -EINVAL;
+
+	if (ch_info->index == 1 && mode->spd) {
+		ch_info->vc = V4L2_MBUS_CSI2_CHANNEL_1;
+		ch_info->width = mode->spd->width;
+		ch_info->height = mode->spd->height;
+		ch_info->bus_fmt = mode->spd->bus_fmt;
+		ch_info->data_type = mode->spd->data_type;
+		ch_info->data_bit = mode->spd->data_bit;
+	} else {
+		ch_info->vc = ox03c10->cur_mode->vc[ch_info->index];
+		ch_info->width = ox03c10->cur_mode->width;
+		ch_info->height = ox03c10->cur_mode->height;
+		ch_info->bus_fmt = ox03c10->cur_mode->bus_fmt;
+	}
+	return 0;
+}
+
 static void ox03c10_get_module_inf(struct ox03c10 *ox03c10,
 				   struct rkmodule_inf *inf)
 {
@@ -516,11 +558,16 @@ static long ox03c10_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 	struct ox03c10 *ox03c10 = to_ox03c10(sd);
 	struct rkmodule_hdr_cfg *hdr;
+	struct rkmodule_channel_info *ch_info;
 	u32 i, h, w;
 	long ret = 0;
 	u32 stream = 0;
 
 	switch (cmd) {
+	case RKMODULE_GET_CHANNEL_INFO:
+		ch_info = (struct rkmodule_channel_info *)arg;
+		ret = ox03c10_get_channel_info(ox03c10, ch_info);
+		break;
 	case RKMODULE_GET_MODULE_INFO:
 		ox03c10_get_module_inf(ox03c10, (struct rkmodule_inf *)arg);
 		break;
