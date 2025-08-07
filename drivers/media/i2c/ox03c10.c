@@ -63,7 +63,6 @@
 #define OX03C10_REG_EXP_MID_H		0x3541
 #define OX03C10_REG_EXP_VS_H		0x3581
 
-#define OX03C10_REG_HCG_SWITCH		0x376C
 #define OX03C10_REG_AGAIN_LONG_H	0x3508
 #define OX03C10_REG_AGAIN_MID_H		0x3548
 #define OX03C10_REG_AGAIN_VS_H		0x3588
@@ -180,7 +179,6 @@ struct ox03c10 {
 	bool			is_thunderboot_ng;
 	bool			is_first_streamoff;
 	u8			flip;
-	u32			dcg_ratio;
 	struct v4l2_fwnode_endpoint bus_cfg;
 };
 
@@ -2454,7 +2452,7 @@ static const struct ox03c10_mode supported_modes[] = {
 		.global_reg_list = ox03c10_global_regs,
 		.reg_list = ox03c10_non_combined_hdr_1920x1280_regs,
 		.hdr_mode = HDR_X3,
-		.link_freq_idx = 1,
+		.link_freq_idx = 0,
 		.bpp = 10,
 		.vc[PAD0] = V4L2_MBUS_CSI2_CHANNEL_2,
 		.vc[PAD1] = V4L2_MBUS_CSI2_CHANNEL_1,//M->csi wr0
@@ -2728,16 +2726,14 @@ static int ox03c10_g_mbus_config(struct v4l2_subdev *sd, unsigned int pad_id,
 {
 	struct ox03c10 *ox03c10 = to_ox03c10(sd);
 	const struct ox03c10_mode *mode = ox03c10->cur_mode;
-	u32 val = 0;
-	u8 lanes = OX03C10_LANES;
+	u32 val = 1 << (OX03C10_LANES - 1) |
+		V4L2_MBUS_CSI2_CHANNEL_0 |
+		V4L2_MBUS_CSI2_CONTINUOUS_CLOCK;
 
-	if (mode->hdr_mode == NO_HDR)
-		val = 1 << (lanes - 1) | V4L2_MBUS_CSI2_CHANNEL_0 |
-		      V4L2_MBUS_CSI2_CONTINUOUS_CLOCK;
-	if (mode->hdr_mode == HDR_X2)
-		val = 1 << (lanes - 1) | V4L2_MBUS_CSI2_CHANNEL_0 |
-		      V4L2_MBUS_CSI2_CONTINUOUS_CLOCK |
-		      V4L2_MBUS_CSI2_CHANNEL_1;
+	if (mode->hdr_mode != NO_HDR)
+		val |= V4L2_MBUS_CSI2_CHANNEL_1;
+	if (mode->hdr_mode == HDR_X3)
+		val |= V4L2_MBUS_CSI2_CHANNEL_2;
 
 	config->type = V4L2_MBUS_CSI2_DPHY;
 	config->flags = val;
@@ -2767,8 +2763,6 @@ static int ox03c10_set_hdrae(struct ox03c10 *ox03c10,
 	u8 l_cg_mode = 0;
 	u8 m_cg_mode = 0;
 	u8 s_cg_mode = 0;
-	u32 gain_switch = 0;
-	u8 is_need_switch = 0;
 
 	if (!ox03c10->has_init_exp && !ox03c10->streaming) {
 		ox03c10->init_hdrae_exp = *ae;
@@ -2805,26 +2799,16 @@ static int ox03c10_set_hdrae(struct ox03c10 *ox03c10,
 		m_exp_time = s_exp_time;
 		m_cg_mode = s_cg_mode;
 	}
-	ret = ox03c10_read_reg(ox03c10->client, OX03C10_REG_HCG_SWITCH,
-			       OX03C10_REG_VALUE_08BIT, &gain_switch);
 
 	if (ox03c10->long_hcg && l_cg_mode == GAIN_MODE_LCG) {
-		gain_switch |= 0x10;
 		ox03c10->long_hcg = false;
-		is_need_switch++;
 	} else if (!ox03c10->long_hcg && l_cg_mode == GAIN_MODE_HCG) {
-		gain_switch &= 0xef;
 		ox03c10->long_hcg = true;
-		is_need_switch++;
 	}
 	if (ox03c10->middle_hcg && m_cg_mode == GAIN_MODE_LCG) {
-		gain_switch |= 0x20;
 		ox03c10->middle_hcg = false;
-		is_need_switch++;
 	} else if (!ox03c10->middle_hcg && m_cg_mode == GAIN_MODE_HCG) {
-		gain_switch &= 0xdf;
 		ox03c10->middle_hcg = true;
-		is_need_switch++;
 	}
 	if (l_a_gain > 248) {
 		l_d_gain = l_a_gain * 1024 / 248;
@@ -2844,7 +2828,7 @@ static int ox03c10_set_hdrae(struct ox03c10 *ox03c10,
 				 OX03C10_GROUP_UPDATE_START_DATA);
 	ret |= ox03c10_write_reg(ox03c10->client, OX03C10_REG_AGAIN_LONG_H,
 				 OX03C10_REG_VALUE_16BIT,
-				 (l_a_gain << 4) & 0x1ff0);
+				 (l_a_gain << 4) & 0x0ff0);
 	ret |= ox03c10_write_reg(ox03c10->client, OX03C10_REG_DGAIN_LONG_H,
 				 OX03C10_REG_VALUE_24BIT,
 				 (l_d_gain << 6) & 0xfffc0);
@@ -2852,7 +2836,7 @@ static int ox03c10_set_hdrae(struct ox03c10 *ox03c10,
 				 OX03C10_REG_VALUE_16BIT, l_exp_time);
 	ret |= ox03c10_write_reg(ox03c10->client, OX03C10_REG_AGAIN_MID_H,
 				 OX03C10_REG_VALUE_16BIT,
-				 (m_a_gain << 4) & 0x1ff0);
+				 (m_a_gain << 4) & 0x0ff0);
 	ret |= ox03c10_write_reg(ox03c10->client, OX03C10_REG_DGAIN_MID_H,
 				 OX03C10_REG_VALUE_24BIT,
 				 (m_d_gain << 6) & 0xfffc0);
@@ -2863,7 +2847,7 @@ static int ox03c10_set_hdrae(struct ox03c10 *ox03c10,
 		ret |= ox03c10_write_reg(ox03c10->client,
 					 OX03C10_REG_AGAIN_VS_H,
 					 OX03C10_REG_VALUE_16BIT,
-					 (s_a_gain << 4) & 0x1ff0);
+					 (s_a_gain << 4) & 0x0ff0);
 		ret |= ox03c10_write_reg(ox03c10->client, OX03C10_REG_EXP_VS_H,
 					 OX03C10_REG_VALUE_16BIT, s_exp_time);
 		ret |= ox03c10_write_reg(ox03c10->client,
@@ -2871,64 +2855,15 @@ static int ox03c10_set_hdrae(struct ox03c10 *ox03c10,
 					 OX03C10_REG_VALUE_24BIT,
 					 (s_d_gain << 6) & 0xfffc0);
 		if (ox03c10->short_hcg && s_cg_mode == GAIN_MODE_LCG) {
-			gain_switch |= 0x40;
 			ox03c10->short_hcg = false;
-			is_need_switch++;
 		} else if (!ox03c10->short_hcg && s_cg_mode == GAIN_MODE_HCG) {
-			gain_switch &= 0xbf;
 			ox03c10->short_hcg = true;
-			is_need_switch++;
 		}
 	}
-	if (is_need_switch)
-		ret |= ox03c10_write_reg(ox03c10->client,
-					 OX03C10_REG_HCG_SWITCH,
-					 OX03C10_REG_VALUE_08BIT, gain_switch);
 	ret |= ox03c10_write_reg(ox03c10->client, OX03C10_GROUP_UPDATE_ADDRESS,
 				 OX03C10_REG_VALUE_08BIT,
 				 OX03C10_GROUP_UPDATE_END_DATA);
 	ret |= ox03c10_write_reg(ox03c10->client, OX03C10_GROUP_UPDATE_ADDRESS,
-				 OX03C10_REG_VALUE_08BIT,
-				 OX03C10_GROUP_UPDATE_END_LAUNCH);
-	return ret;
-}
-
-static int ox03c10_set_conversion_gain(struct ox03c10 *ox03c10, u32 *cg)
-{
-	int ret = 0;
-	struct i2c_client *client = ox03c10->client;
-	u32 cur_cg = *cg;
-	u32 val = 0;
-	s32 is_need_change = 0;
-
-	dev_dbg(&ox03c10->client->dev, "set conversion gain %d\n", cur_cg);
-	if (ox03c10->is_thunderboot && rkisp_tb_get_state() == RKISP_TB_NG) {
-		ox03c10->is_thunderboot = false;
-		ox03c10->is_thunderboot_ng = true;
-		__ox03c10_power_on(ox03c10);
-	}
-
-	ret = ox03c10_read_reg(client, OX03C10_REG_HCG_SWITCH,
-			       OX03C10_REG_VALUE_08BIT, &val);
-	if (ox03c10->long_hcg && cur_cg == GAIN_MODE_LCG) {
-		val |= 0x10;
-		is_need_change++;
-		ox03c10->long_hcg = false;
-	} else if (!ox03c10->long_hcg && cur_cg == GAIN_MODE_HCG) {
-		val &= 0xef;
-		is_need_change++;
-		ox03c10->long_hcg = true;
-	}
-	ret |= ox03c10_write_reg(client, OX03C10_GROUP_UPDATE_ADDRESS,
-				 OX03C10_REG_VALUE_08BIT,
-				 OX03C10_GROUP_UPDATE_START_DATA);
-	if (is_need_change)
-		ret |= ox03c10_write_reg(client, OX03C10_REG_HCG_SWITCH,
-					 OX03C10_REG_VALUE_08BIT, val);
-	ret |= ox03c10_write_reg(client, OX03C10_GROUP_UPDATE_ADDRESS,
-				 OX03C10_REG_VALUE_08BIT,
-				 OX03C10_GROUP_UPDATE_END_DATA);
-	ret |= ox03c10_write_reg(client, OX03C10_GROUP_UPDATE_ADDRESS,
 				 OX03C10_REG_VALUE_08BIT,
 				 OX03C10_GROUP_UPDATE_END_LAUNCH);
 	return ret;
@@ -2997,9 +2932,6 @@ static long ox03c10_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		hdr_cfg->esp.mode = HDR_NORMAL_VC;
 		hdr_cfg->hdr_mode = ox03c10->cur_mode->hdr_mode;
 		break;
-	case RKMODULE_SET_CONVERSION_GAIN:
-		ret = ox03c10_set_conversion_gain(ox03c10, (u32 *)arg);
-		break;
 	case RKMODULE_SET_QUICK_STREAM:
 
 		stream = *((u32 *)arg);
@@ -3016,11 +2948,9 @@ static long ox03c10_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 						OX03C10_MODE_SW_STANDBY);
 		break;
 	case RKMODULE_GET_DCG_RATIO:
-		if (ox03c10->dcg_ratio == 0)
-			return -EINVAL;
 		dcg = (struct rkmodule_dcg_ratio *)arg;
-		dcg->integer = (ox03c10->dcg_ratio >> 8) & 0xff;
-		dcg->decimal = ox03c10->dcg_ratio & 0xff;
+		dcg->integer = 7;
+		dcg->decimal = 32;
 		dcg->div_coeff = 256;
 		dev_info(&ox03c10->client->dev,
 			 "get dcg ratio integer %d, decimal %d div_coeff %d\n",
@@ -3140,26 +3070,6 @@ static long ox03c10_compat_ioctl32(struct v4l2_subdev *sd, unsigned int cmd,
 }
 #endif
 
-static int ox03c10_init_conversion_gain(struct ox03c10 *ox03c10)
-{
-	int ret = 0;
-	struct i2c_client *client = ox03c10->client;
-	u32 val = 0;
-
-	ret = ox03c10_read_reg(client, OX03C10_REG_HCG_SWITCH,
-			       OX03C10_REG_VALUE_08BIT, &val);
-	val &= ~0x70;
-	if (!ox03c10->long_hcg)
-		val |= 0x10;
-	if (!ox03c10->middle_hcg)
-		val |= 0x20;
-	if (!ox03c10->short_hcg)
-		val |= 0x40;
-	ret |= ox03c10_write_reg(client, OX03C10_REG_HCG_SWITCH,
-				 OX03C10_REG_VALUE_08BIT, val);
-	return ret;
-}
-
 static int __ox03c10_start_stream(struct ox03c10 *ox03c10)
 {
 	int ret;
@@ -3170,10 +3080,6 @@ static int __ox03c10_start_stream(struct ox03c10 *ox03c10)
 		if (ret)
 			return ret;
 	}
-
-	ret = ox03c10_init_conversion_gain(ox03c10);
-	if (ret)
-		return ret;
 
 	/* In case these controls are set before streaming */
 	ret = __v4l2_ctrl_handler_setup(&ox03c10->ctrl_handler);
@@ -3528,7 +3434,7 @@ static int ox03c10_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret = ox03c10_write_reg(ox03c10->client,
 					OX03C10_REG_AGAIN_LONG_H,
 					OX03C10_REG_VALUE_16BIT,
-					(again << 4) & 0x1ff0);
+					(again << 4) & 0x0ff0);
 		ret |= ox03c10_write_reg(ox03c10->client,
 					 OX03C10_REG_DGAIN_LONG_H,
 					 OX03C10_REG_VALUE_24BIT,
@@ -3612,7 +3518,7 @@ static int ox03c10_initialize_controls(struct ox03c10 *ox03c10)
 	/* pixel rate = link frequency * 2 * lanes / BITS_PER_SAMPLE */
 	ox03c10->pixel_rate =
 		v4l2_ctrl_new_std(handler, NULL, V4L2_CID_PIXEL_RATE, 0,
-				  PIXEL_RATE_WITH_648M, 1, dst_pixel_rate);
+				  PIXEL_RATE_WITH_720M, 1, dst_pixel_rate);
 
 	__v4l2_ctrl_s_ctrl(ox03c10->link_freq, dst_link_freq);
 
@@ -3710,39 +3616,6 @@ static int ox03c10_configure_regulators(struct ox03c10 *ox03c10)
 				       OX03C10_NUM_SUPPLIES, ox03c10->supplies);
 }
 
-static int ox03c10_get_dcg_ratio(struct ox03c10 *ox03c10)
-{
-	struct device *dev = &ox03c10->client->dev;
-	u32 val = 0;
-	int ret = 0;
-
-	if (ox03c10->is_thunderboot) {
-		ret = ox03c10_read_reg(ox03c10->client, 0x77fe,
-				       OX03C10_REG_VALUE_16BIT, &val);
-	} else {
-		ret = ox03c10_write_reg(ox03c10->client, OX03C10_REG_CTRL_MODE,
-					OX03C10_REG_VALUE_08BIT,
-					OX03C10_MODE_STREAMING);
-		usleep_range(5000, 6000);
-		ret |= ox03c10_read_reg(ox03c10->client, 0x77fe,
-					OX03C10_REG_VALUE_16BIT, &val);
-		ret |= ox03c10_write_reg(ox03c10->client, OX03C10_REG_CTRL_MODE,
-					 OX03C10_REG_VALUE_08BIT,
-					 OX03C10_MODE_SW_STANDBY);
-	}
-
-	if (ret != 0 || val == 0) {
-		ox03c10->dcg_ratio = 0;
-		dev_err(dev, "get dcg ratio fail, ret %d, dcg ratio %d\n", ret,
-			val);
-	} else {
-		ox03c10->dcg_ratio = val;
-		dev_info(dev, "get dcg ratio reg val 0x%04x\n", val);
-	}
-
-	return ret;
-}
-
 static int ox03c10_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
@@ -3794,9 +3667,12 @@ static int ox03c10_probe(struct i2c_client *client,
 		dev_err(dev, "Failed to get bus config\n");
 		return -EINVAL;
 	}
-
-	ox03c10->supported_modes = supported_modes;
-	ox03c10->cfg_num = ARRAY_SIZE(supported_modes);
+	if (ox03c10->bus_cfg.bus.mipi_csi2.num_data_lanes == 2) {
+		ox03c10->supported_modes = supported_modes;
+		ox03c10->cfg_num = ARRAY_SIZE(supported_modes);
+	} else {
+		dev_err(dev, "Unsupported 4-lane mode\n");
+	}
 
 	for (i = 0; i < ox03c10->cfg_num; i++) {
 		if (hdr_mode == supported_modes[i].hdr_mode) {
@@ -3852,10 +3728,6 @@ static int ox03c10_probe(struct i2c_client *client,
 	ret = ox03c10_check_sensor_id(ox03c10, client);
 	if (ret)
 		goto err_power_off;
-
-	ret = ox03c10_get_dcg_ratio(ox03c10);
-	if (ret)
-		dev_warn(dev, "get dcg ratio failed\n");
 
 #ifdef CONFIG_VIDEO_V4L2_SUBDEV_API
 	sd->internal_ops = &ox03c10_internal_ops;
