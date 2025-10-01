@@ -24,7 +24,7 @@
 #define MIPI_FREQ_160M			160000000
 
 #define OV2312_LANES			2
-#define OV2312_BITS_PER_SAMPLE		10
+#define OV2312_BITS_PER_SAMPLE		8
 
 #define PIXEL_RATE_WITH_160M		(MIPI_FREQ_160M / OV2312_BITS_PER_SAMPLE * 2 * OV2312_LANES)
 
@@ -144,7 +144,7 @@ static const struct regval ov2312_1600x1296_regs[] = {
 	{ 0x0304, 0x03 },
 	{ 0x0305, 0x02 },
 	{ 0x0306, 0x01 },
-	{ 0x030d, 0x5a },
+	{ 0x030d, 0x70 },
 	{ 0x030e, 0x04 },
 	{ 0x3001, 0x02 },
 	{ 0x3004, 0x00 },
@@ -170,7 +170,7 @@ static const struct regval ov2312_1600x1296_regs[] = {
 	{ 0x3507, 0x00 },
 	{ 0x3620, 0x67 },
 	{ 0x3633, 0x78 },
-	{ 0x3662, 0x65 },
+	{ 0x3662, 0x67 },
 	{ 0x3664, 0xb0 },
 	{ 0x3666, 0x70 },
 	{ 0x3670, 0x68 },
@@ -324,7 +324,7 @@ static const struct ov2312_mode supported_modes[] = {
 			.numerator = 10000,
 			.denominator = 600000,
 		},
-		.bus_fmt = MEDIA_BUS_FMT_SBGGR10_1X10,
+		.bus_fmt = MEDIA_BUS_FMT_SBGGR8_1X8,
 		.exp_def = 0x0320,
 		.hts_def = (0x0388 * 2),/* Registers 0x380c / 0x380d  * 2 */
 		.vts_def = 0x5c2,	/* Registers 0x380e / 0x380f
