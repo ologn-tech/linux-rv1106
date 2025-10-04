@@ -369,6 +369,15 @@ static void update_rawrd(struct rkisp_stream *stream)
 	u32 val = 0;
 
 	if (stream->curr_buf) {
+		struct vb2_v4l2_buffer *vbuf = &stream->curr_buf->vb;
+		struct isp2x_csi_trigger trigger = {
+			.frame_timestamp = vbuf->vb2_buf.timestamp,
+			.sof_timestamp = vbuf->vb2_buf.timestamp,
+			.frame_id = vbuf->sequence,
+			.mode = 0,
+			.times = 0,
+		};
+
 		if (dev->vicap_in.merge_num > 1) {
 			val = stream->out_fmt.plane_fmt[0].bytesperline;
 			val /= dev->vicap_in.merge_num;
@@ -394,20 +403,10 @@ static void update_rawrd(struct rkisp_stream *stream)
 					val + offs, ISP_UNITE_RIGHT_B, false);
 		}
 		stream->frame_end = false;
-		if (stream->id == RKISP_STREAM_RAWRD2 && stream->out_isp_fmt.fmt_type == FMT_YUV) {
-			struct vb2_v4l2_buffer *vbuf = &stream->curr_buf->vb;
-			struct isp2x_csi_trigger trigger = {
-				.frame_timestamp = vbuf->vb2_buf.timestamp,
-				.sof_timestamp = vbuf->vb2_buf.timestamp,
-				.frame_id = vbuf->sequence,
-				.mode = 0,
-				.times = 0,
-			};
 
-			if (!vbuf->sequence)
-				trigger.frame_id = atomic_inc_return(&dev->isp_sdev.frm_sync_seq) - 1;
-			rkisp_rdbk_trigger_event(dev, T_CMD_QUEUE, &trigger);
-		}
+		if (!vbuf->sequence)
+			trigger.frame_id = atomic_inc_return(&dev->isp_sdev.frm_sync_seq) - 1;
+		rkisp_rdbk_trigger_event(dev, T_CMD_QUEUE, &trigger);
 	} else if (dev->dmarx_dev.trigger == T_AUTO) {
 		/* internal raw wr/rd buf rotate */
 		struct rkisp_dummy_buffer *buf;
