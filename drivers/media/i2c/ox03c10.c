@@ -4956,7 +4956,7 @@ static const struct ox03c10_mode supported_modes[] = {
 		.hdr_compr = NULL,
 		.bpp = 10,
 		.mipi_freq_idx = 1,
-		.vc[PAD0] = 0,
+		.vc[PAD0] = V4L2_MBUS_CSI2_CHANNEL_0,
 		.exp_mode = EXP_NORMAL,
 	},
 	{
@@ -4976,7 +4976,7 @@ static const struct ox03c10_mode supported_modes[] = {
 		.bpp = 12,
 		.mipi_freq_idx = 0,
 		.hdr_operating_mode = OX03C10_HDR3_DCG_VS_12BIT,
-		.vc[PAD0] = 0,
+		.vc[PAD0] = V4L2_MBUS_CSI2_CHANNEL_0,
 		.exp_mode = EXP_HDR3_DCG_VS,
 	},
 	{
@@ -4996,10 +4996,10 @@ static const struct ox03c10_mode supported_modes[] = {
 		.bpp = 16,
 		.mipi_freq_idx = 1,
 		.hdr_operating_mode = OX03C10_HDR3_DCG_VS_LFM_16BIT,
-		.vc[PAD0] = 0,
-		.vc[PAD1] = 1,
-		.vc[PAD2] = 2,
-		.vc[PAD3] = 3,
+		.vc[PAD0] = V4L2_MBUS_CSI2_CHANNEL_0,
+		.vc[PAD1] = V4L2_MBUS_CSI2_CHANNEL_1,
+		.vc[PAD2] = V4L2_MBUS_CSI2_CHANNEL_2,
+		.vc[PAD3] = V4L2_MBUS_CSI2_CHANNEL_3,
 		.exp_mode = EXP_HDR3_DCG_VS,
 	},
 	{
@@ -5019,7 +5019,7 @@ static const struct ox03c10_mode supported_modes[] = {
 		.bpp = 12,
 		.mipi_freq_idx = 0,
 		.hdr_operating_mode = OX03C10_HDR3_DCG_SPD_12BIT,
-		.vc[PAD0] = 0,
+		.vc[PAD0] = V4L2_MBUS_CSI2_CHANNEL_0,
 		.exp_mode = EXP_HDR3_DCG_SPD,
 	},
 };
@@ -5295,10 +5295,9 @@ static int ox03c10_g_mbus_config(struct v4l2_subdev *sd, unsigned int pad_id,
 	u32 val = 1 << (OX03C10_LANES - 1) | V4L2_MBUS_CSI2_CHANNEL_0 |
 		  V4L2_MBUS_CSI2_CONTINUOUS_CLOCK;
 
-	if (mode->hdr_mode != NO_HDR)
-		val |= V4L2_MBUS_CSI2_CHANNEL_1;
-	if (mode->hdr_mode == HDR_X3)
-		val |= V4L2_MBUS_CSI2_CHANNEL_2;
+	if (mode->hdr_operating_mode == OX03C10_HDR3_DCG_VS_LFM_16BIT)
+		val |= V4L2_MBUS_CSI2_CHANNEL_1 | V4L2_MBUS_CSI2_CHANNEL_2 |
+		       V4L2_MBUS_CSI2_CHANNEL_3;
 
 	config->type = V4L2_MBUS_CSI2_DPHY;
 	config->flags = val;
