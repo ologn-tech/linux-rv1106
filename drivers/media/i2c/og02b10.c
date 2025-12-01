@@ -42,7 +42,7 @@
 
 #define OG02B10_LANES				2
 #define MIPI_FREQ_400M				400000000
-#define PIXEL_RATE_WITH_400M			(MIPI_FREQ_400M * 2 / 10 * OG02B10_LANES)
+#define PIXEL_RATE_WITH_400M			(MIPI_FREQ_400M * 2 / 8 * OG02B10_LANES)
 #define OG02B10_XVCLK_FREQ			24000000
 
 #define OG02B10_SYS_CLK				80000000
@@ -209,7 +209,7 @@ struct og02b10 {
 /*
  * Xclk 24Mhz
  */
-static const struct regval og02b10_linear10bit_1600x1200_regs[] = {
+static const struct regval og02b10_linear8bit_1600x1200_regs[] = {
 	// SOFTWARE RESET(0:off, 1:on)
 	{0x0103, 0x01},
 	// MODE SELECT(0:software_standby, 1:streaming)
@@ -260,7 +260,7 @@ static const struct regval og02b10_linear10bit_1600x1200_regs[] = {
 	//ana control registers
 	{0x3620, 0x67},
 	{0x3633, 0x78},
-	{0x3662, 0x65},
+	{0x3662, 0x67},
 	{0x3664, 0xb0},
 	{0x3666, 0x70},
 	{0x3670, 0x68},
@@ -445,7 +445,7 @@ static const struct regval og02b10_linear10bit_1600x1200_regs[] = {
  */
 static const struct og02b10_mode supported_modes[] = {
 	{
-		.bus_fmt = MEDIA_BUS_FMT_SBGGR10_1X10,
+		.bus_fmt = MEDIA_BUS_FMT_SBGGR8_1X8,
 		.width = 1600,
 		.height = 1200,
 		.max_fps = {
@@ -467,7 +467,7 @@ static const struct og02b10_mode supported_modes[] = {
 		.exp_def = 0x02ea,
 		.hts_def = 0x03a8,
 		.vts_def = 0x0b10,
-		.reg_list = og02b10_linear10bit_1600x1200_regs,
+		.reg_list = og02b10_linear8bit_1600x1200_regs,
 		.hdr_mode = NO_HDR,
 		.vc[PAD0] = V4L2_MBUS_CSI2_CHANNEL_0,
 	},
