@@ -132,7 +132,7 @@ struct ov2312 {
 /*
  * Xclk 24Mhz
  */
-static const struct regval ov2312_1536x1296_regs[] = {
+static const struct regval ov2312_1600x1296_regs[] = {
 	{ 0x0103, 0x01 },
 	{ 0x0100, 0x00 },
 	{ 0x0106, 0x00 },
@@ -199,7 +199,7 @@ static const struct regval ov2312_1536x1296_regs[] = {
 	{ 0x3806, 0x05 },
 	{ 0x3807, 0x23 },
 	{ 0x3808, 0x06 },
-	{ 0x3809, 0x00 },
+	{ 0x3809, 0x40 },
 	{ 0x380a, 0x05 },
 	{ 0x380b, 0x10 },
 	{ 0x380c, 0x03 },
@@ -318,7 +318,7 @@ static const struct regval ov2312_1536x1296_regs[] = {
  */
 static const struct ov2312_mode supported_modes[] = {
 	{
-		.width = 1536,
+		.width = 1600,
 		.height = 1296,
 		.max_fps = {
 			.numerator = 10000,
@@ -330,7 +330,7 @@ static const struct ov2312_mode supported_modes[] = {
 		.vts_def = 0x5c2,	/* Registers 0x380e / 0x380f
 					 * 60fps for 10bpp
 					 */
-		.reg_list = ov2312_1536x1296_regs,
+		.reg_list = ov2312_1600x1296_regs,
 		.hdr_mode = NO_HDR,
 		.vc[PAD0] = V4L2_MBUS_CSI2_CHANNEL_0,
 	},
