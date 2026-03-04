@@ -148,7 +148,6 @@ static const struct regval ov6211_global_regs[] = {
 	{REG_NULL, 0x00},
 };
 
-
 static const struct regval ov6211_400x400_120fps_regs[] = {
 	{0x0103, 0x01},
 	{0x0100, 0x00},
@@ -286,7 +285,7 @@ static const struct ov6211_mode supported_modes[] = {
 		.exp_def = 0x00f8,
 		.hts_def = 0x03a1,
 		.vts_def = 0x021a,
-		.bus_fmt = MEDIA_BUS_FMT_SBGGR10_1X10,
+		.bus_fmt = MEDIA_BUS_FMT_Y10_1X10,
 		.reg_list = ov6211_400x400_120fps_regs,
 		.hdr_mode = NO_HDR,
 		.vc[PAD0] = V4L2_MBUS_CSI2_CHANNEL_0,
@@ -380,8 +379,6 @@ static int ov6211_read_reg(struct i2c_client *client, u16 reg, unsigned int len,
 
 	return 0;
 }
-
-
 
 static int ov6211_get_reso_dist(const struct ov6211_mode *mode,
 				 struct v4l2_mbus_framefmt *framefmt)
