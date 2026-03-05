@@ -39,9 +39,8 @@
 					OV6211_LANES / OV6211_BITS_PER_SAMPLE)
 #define OV6211_XVCLK_FREQ		24000000
 
-#define CHIP_ID				0x67
+#define CHIP_ID				0x6710
 #define OV6211_REG_CHIP_ID		0x300a
-#define OV6211_REG_OPT_LOAD_CTRL	0x3d81
 
 #define OV6211_REG_CTRL_MODE		0x0100
 #define OV6211_MODE_SW_STANDBY		0x0
@@ -1136,13 +1135,13 @@ static int ov6211_check_sensor_id(struct ov6211 *ov6211,
 	int ret;
 
 	ret = ov6211_read_reg(client, OV6211_REG_CHIP_ID,
-			       OV6211_REG_VALUE_08BIT, &id);
+			      OV6211_REG_VALUE_16BIT, &id);
 	if (id != CHIP_ID) {
-		dev_err(dev, "Unexpected sensor id(%06x), ret(%d)\n", id, ret);
+		dev_err(dev, "Unexpected sensor id(%x), ret(%d)\n", id, ret);
 		return -ENODEV;
 	}
 
-	dev_info(dev, "Detected OV%06x sensor\n", CHIP_ID);
+	dev_info(dev, "Detected OV6211 sensor\n");
 
 	return 0;
 }
