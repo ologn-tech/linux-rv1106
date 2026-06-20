@@ -5316,24 +5316,44 @@ static int ox03c10_set_ctrl(struct v4l2_ctrl *ctrl)
 			 ctrl->val, ret);
 		break;
 	case V4L2_CID_ANALOGUE_GAIN:
-		// hcg real gain
-		again = ctrl->val;
-		if (again > 248) {
-			dgain = again * 1024 / 248;
+		/*
+		*[1, 1.9375, 16, 0, 1, 16, 31,
+		* 2, 3.875, 8, -16, 1, 32, 47,
+		* 4, 7.75, 4, -32, 1, 48, 63,
+		* 8, 15.5, 2,-48, 1, 64, 95,
+		* 15.5, 247.9375, 16, 0, 1, 248, 3967]
+		*/
+		// lcg real gain
+		if (ctrl->val < 16) {
+			again = 16;
+		} else if (ctrl->val <= 31) {
+			again = ctrl->val;
+		} else if (ctrl->val <= 47) {
+			again = (ctrl->val - 16) << 1;
+		} else if (ctrl->val <= 63) {
+			again = (ctrl->val - 32) << 2;
+		} else if (ctrl->val <= 95) {
+			again = (ctrl->val - 48) << 3;
+		} else if (ctrl->val >= 248) {
+			dgain = div_u64(ctrl->val * 1024, 248);
 			again = 248;
+		} else {
+			dev_err(&client->dev, "%s set gain val:0x%x not support",
+				__func__, ctrl->val);
+			break;
 		}
 		ret |= ox03c10_write_reg(ox03c10->client, OX03C10_GROUP_UPDATE_ADDRESS,
 				 OX03C10_REG_VALUE_08BIT,
 				 OX03C10_GROUP1_UPDATE_START_DATA);
 
-		// hcg real gain
+		// lcg real gain
 		ret |= ox03c10_write_reg(ox03c10->client,
-					 OX03C10_REG_AGAIN_HCG_H,
+					 OX03C10_REG_AGAIN_LCG_H,
 					 OX03C10_REG_VALUE_16BIT,
 					 (again << 4) & 0xff0);
-		// hcg digital gain
+		// lcg digital gain
 		ret |= ox03c10_write_reg(ox03c10->client,
-					 OX03C10_REG_DGAIN_HCG_H,
+					 OX03C10_REG_DGAIN_LCG_H,
 					 OX03C10_REG_VALUE_24BIT,
 					 (dgain << 6) & 0xfffc0);
 
