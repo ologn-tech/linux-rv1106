@@ -6485,7 +6485,7 @@ static int ox03c10_set_ctrl(struct v4l2_ctrl *ctrl)
 		* 8, 15.5, 2,-48, 1, 64, 95,
 		* 15.5, 247.9375, 16, 0, 1, 248, 3967]
 		*/
-		// lcg real gain
+		// hcg real gain
 		if (ctrl->val < 16) {
 			again = 16;
 		} else if (ctrl->val <= 31) {
@@ -6508,14 +6508,14 @@ static int ox03c10_set_ctrl(struct v4l2_ctrl *ctrl)
 				 OX03C10_REG_VALUE_08BIT,
 				 OX03C10_GROUP1_UPDATE_START_DATA);
 
-		// lcg real gain
+		// hcg real gain
 		ret |= ox03c10_write_reg(ox03c10->client,
-					 OX03C10_REG_AGAIN_LCG_H,
+					 OX03C10_REG_AGAIN_HCG_H,
 					 OX03C10_REG_VALUE_16BIT,
 					 (again << 4) & 0xff0);
-		// lcg digital gain
+		// hcg digital gain
 		ret |= ox03c10_write_reg(ox03c10->client,
-					 OX03C10_REG_DGAIN_LCG_H,
+					 OX03C10_REG_DGAIN_HCG_H,
 					 OX03C10_REG_VALUE_24BIT,
 					 (dgain << 6) & 0xfffc0);
 
