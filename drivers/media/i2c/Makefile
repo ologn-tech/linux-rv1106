@@ -251,3 +251,4 @@ obj-$(CONFIG_VIDEO_PREISP_DUMMY_SENSOR) += preisp-dummy.o
 obj-$(CONFIG_VIDEO_ROCKCHIP_THUNDER_BOOT_SETUP)	+= cam-tb-setup.o
 obj-$(CONFIG_VIDEO_CAM_SLEEP_WAKEUP)	+= cam-sleep-wakeup.o
 obj-$(CONFIG_VIDEO_LIGHT_CTL)	+= light_ctl.o
+obj-$(CONFIG_VIDEO_MAXIM_SERDES) += maxim/

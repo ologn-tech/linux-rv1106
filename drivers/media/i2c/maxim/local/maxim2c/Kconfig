@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Maxim Dual GMSL deserializer devices
+#
+config VIDEO_MAXIM_DES_MAXIM2C
+	tristate "Maxim Dual GMSL deserializer support"
+	depends on VIDEO_MAXIM_SERDES
+	help
+	  This driver supports the Maxim Dual GMSL2/GMSL1 deserializers:
+	  MAX9296, MAX96716 and MAX96718.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called maxim2c.
