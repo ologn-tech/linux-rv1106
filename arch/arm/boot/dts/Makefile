@@ -1132,6 +1132,7 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += \
 	rv1103g-evb2-v10.dtb \
 	rv1103g-rmsl311-dloc-sl-v10.dtb \
 	rv1103g-scaner-v10.dtb \
+	rv1103g-luckfox-pico-mini.dtb \
 	rv1106g-38x38-ipc-v10.dtb \
 	rv1106g-38x38-ipc-v10-spi-nand.dtb \
 	rv1106g-evb1-mcu-display-v11.dtb \
@@ -1168,6 +1169,7 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += \
 	rv1106g-smart-door-lock-rmsl-v12.dtb \
 	rv1106g-uvc-demo-v10.dtb \
 	rv1106g-uvc-demo-v10-spi-nor.dtb \
+	rv1106g-luckfox-pico-ultra-w.dtb \
 	rv1108-elgin-r1.dtb \
 	rv1108-evb.dtb \
 	rv1126-evb-ddr3-v10.dtb \
